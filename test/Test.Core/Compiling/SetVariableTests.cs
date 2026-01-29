@@ -89,6 +89,59 @@ public class SetVariableTests
         """,
         DisplayName = "Should compile set variable policy with multi line expression"
     )]
+    [DataRow(
+        """
+        [Document]
+        public class PolicyDocument : IDocument
+        {
+            public void Inbound(IInboundContext context) {
+                context.SetVariable("Inbound", CreateString());
+            }
+            
+            [EvaluatedExpression]
+            public static string CreateString(){
+                StringBuilder sb = new StringBuilder(); 
+                
+                for (int i =0; i < 10; i++)
+                    sb.Append(i);
+                
+                return sb.ToString();
+            }
+        }
+        """,
+        """
+        <policies>
+            <inbound>
+                <set-variable name="Inbound" value="0123456789" />
+            </inbound>
+        </policies>
+        """,
+        DisplayName = "Should compile set variable policy with evaluated expression"
+    )]
+    [DataRow(
+        """
+        [Document]
+        public class PolicyDocument : IDocument
+        {
+            public void Inbound(IInboundContext context) {
+                context.SetVariable("Inbound", CreateString("testinput", 2));
+            }
+            
+            [EvaluatedExpression]
+            public static string CreateString(string text, int integer){
+                return string.Concat(text, integer.ToString());
+            }
+        }
+        """,
+        """
+        <policies>
+            <inbound>
+                <set-variable name="Inbound" value="testinput2" />
+            </inbound>
+        </policies>
+        """,
+        DisplayName = "Should compile set variable policy with evaluated expression with parameters"
+    )]
     public void ShouldCompileSetVariablePolicy(string code, string expectedXml)
     {
         code.CompileDocument().Should().BeSuccessful().And.DocumentEquivalentTo(expectedXml);

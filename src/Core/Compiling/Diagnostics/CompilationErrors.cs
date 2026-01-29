@@ -1,4 +1,4 @@
-﻿// Copyright (c) Microsoft Corporation.
+// Copyright (c) Microsoft Corporation.
 // Licensed under the MIT License.
 
 using Microsoft.CodeAnalysis;
@@ -242,6 +242,17 @@ public static class CompilationErrors
         "APIM2011",
         "External value is not a constant",
         "Field '{0}' should be a const for it to be inlined in the policy document",
+        "PolicyDocumentCompilation",
+        DiagnosticSeverity.Error,
+        isEnabledByDefault: true,
+        description: "Description.",
+        helpLinkUri: "TODO",
+        customTags: ["APIM", "ApiManagement"]);
+
+    public readonly static DiagnosticDescriptor FailedEvaluation = new(
+        "APIM2012",
+        "Failed to evaluate expression",
+        "Failed to evaluate expression",
         "PolicyDocumentCompilation",
         DiagnosticSeverity.Error,
         isEnabledByDefault: true,

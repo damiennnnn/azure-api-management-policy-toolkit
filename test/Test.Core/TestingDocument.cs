@@ -2,6 +2,7 @@
 // Licensed under the MIT License.
 
 using Microsoft.Azure.ApiManagement.PolicyToolkit.Authoring;
+using Microsoft.Azure.ApiManagement.PolicyToolkit.Authoring.Attributes;
 using Microsoft.Azure.ApiManagement.PolicyToolkit.Authoring.Expressions;
 
 using Newtonsoft.Json.Linq;

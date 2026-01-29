@@ -8,6 +8,11 @@ using Microsoft.Azure.ApiManagement.PolicyToolkit.Compiling.Diagnostics;
 using Microsoft.CodeAnalysis;
 using Microsoft.CodeAnalysis.CSharp;
 using Microsoft.CodeAnalysis.CSharp.Syntax;
+using Microsoft.CodeAnalysis.CSharp.Scripting;
+using Microsoft.CodeAnalysis.Scripting;
+using System.Threading.Tasks;
+using System.Text;
+using System.Dynamic;
 
 namespace Microsoft.Azure.ApiManagement.PolicyToolkit.Compiling;
 
@@ -45,6 +50,19 @@ public static class CompilerUtils
                 return "";
         }
     }
+    private static object? EvaluateArgument(ExpressionSyntax expression, IDocumentCompilationContext context)
+    {
+        return expression switch
+        {
+            LiteralExpressionSyntax literal => literal.Token.Value,
+            _ => expression.ProcessParameter(context)
+        };
+    }
+
+    public class ScriptGlobals
+    {
+        public Dictionary<string, object?> Args = new();
+    }
 
     public static string FindCode(this InvocationExpressionSyntax syntax, IDocumentCompilationContext context)
     {
@@ -75,6 +93,56 @@ public static class CompilerUtils
                 methodSymbol.Name
             ));
             return "";
+        }
+
+        // Only methods marked with [EvaluatedExpression] are evaluated as scripts
+        if (expressionMethod.AttributeLists.Any(attrListSyn => attrListSyn.Attributes
+                .Any(attrSyn => attrSyn.Name.ToString().Contains("EvaluatedExpression"))))
+        {
+            try
+            {
+                // Work around for providing passed arguments as variables in the script
+                // Roslyn's scripting API doesn't seem to like passing variables dynamically
+
+                var global = new ScriptGlobals();
+                StringBuilder scriptBody = new StringBuilder();
+
+                for (int i =0; i < syntax.ArgumentList.Arguments.Count; i++)
+                {
+                    var arg = syntax.ArgumentList.Arguments[i];
+
+                    var variableName = expressionMethod.ParameterList.Parameters[i].Identifier.Text;
+                    object? variableValue = EvaluateArgument(arg.Expression, context);
+
+                    // Define variable in script
+                    scriptBody.AppendLine($"var {variableName} = Args[\"{variableName}\"];");
+                    global.Args.TryAdd(variableName, variableValue);
+                }
+
+                scriptBody.AppendLine(
+                    expressionMethod.Body != null
+                        ? expressionMethod.Body.ToFullString()
+                        : expressionMethod.ExpressionBody!.Expression.ToFullString()
+                );
+
+                return CSharpScript.EvaluateAsync<string>(
+                    scriptBody.ToString(),
+                    ScriptOptions.Default.WithReferences(compilation.References)
+                    .WithImports(
+                        "System",
+                        "System.Text",
+                        "System.IO"),
+                    globals: global).Result;
+            }
+            catch (Exception e)
+            {
+                context.Report(Diagnostic.Create(
+                    CompilationErrors.FailedEvaluation,
+                    syntax.GetLocation(),
+                    e.Message
+                ));
+                return "";
+            }
         }
 
         expressionMethod = Normalize(expressionMethod);
