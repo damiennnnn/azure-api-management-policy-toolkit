@@ -124,7 +124,7 @@ public class SetVariableTests
         public class PolicyDocument : IDocument
         {
             public void Inbound(IInboundContext context) {
-                context.SetVariable("Inbound", CreateString("testinput", 2));
+                context.SetVariable("Inbound", CreateString("testinput", 1));
             }
             
             [EvaluatedExpression]
@@ -136,14 +136,55 @@ public class SetVariableTests
         """
         <policies>
             <inbound>
-                <set-variable name="Inbound" value="testinput2" />
+                <set-variable name="Inbound" value="testinput1" />
             </inbound>
         </policies>
         """,
         DisplayName = "Should compile set variable policy with evaluated expression with parameters"
     )]
+    [DataRow(
+        """
+        [Document]
+        public class PolicyDocument : IDocument
+        {
+            public void Inbound(IInboundContext context) {
+                context.SetVariable("Inbound", Environment.GetEnvironmentVariable("test"));
+            }
+        }
+        """,
+        """
+        <policies>
+            <inbound>
+                <set-variable name="Inbound" value="testinput" />
+            </inbound>
+        </policies>
+        """,
+        DisplayName = "Should compile set variable policy with inlined environment variable"
+    )]
+    [DataRow(
+        """
+        [Document]
+        public class PolicyDocument : IDocument
+        {
+            public void Inbound(IInboundContext context) {
+                context.SetVariable("Inbound", File.ReadAllText("test.txt"));
+            }
+        }
+        """,
+        """
+        <policies>
+            <inbound>
+                <set-variable name="Inbound" value="testinput" />
+            </inbound>
+        </policies>
+        """,
+        DisplayName = "Should compile set variable policy with inlined file contents"
+    )]
     public void ShouldCompileSetVariablePolicy(string code, string expectedXml)
     {
+        Environment.SetEnvironmentVariable("test", "testinput");
+        File.WriteAllText("test.txt", "testinput");
+
         code.CompileDocument().Should().BeSuccessful().And.DocumentEquivalentTo(expectedXml);
     }
 }

@@ -259,4 +259,26 @@ public static class CompilationErrors
         description: "Description.",
         helpLinkUri: "TODO",
         customTags: ["APIM", "ApiManagement"]);
+
+    public readonly static DiagnosticDescriptor EnvironmentVariableNameMustBeAConstant = new(
+        "APIM2013",
+        "Environment variable name must be a constant",
+        "Environment variable name must be a constant",
+        "PolicyDocumentCompilation",
+        DiagnosticSeverity.Error,
+        isEnabledByDefault: true,
+        description: "Description.",
+        helpLinkUri: "TODO",
+        customTags: ["APIM", "ApiManagement"]);
+
+    public readonly static DiagnosticDescriptor InlinedFileNameMustBeAConstant = new(
+        "APIM2014",
+        "Inlined file name must be a constant",
+        "Inlined file variable name must be a constant",
+        "PolicyDocumentCompilation",
+        DiagnosticSeverity.Error,
+        isEnabledByDefault: true,
+        description: "Description.",
+        helpLinkUri: "TODO",
+        customTags: ["APIM", "ApiManagement"]);
 }

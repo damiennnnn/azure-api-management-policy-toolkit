@@ -66,6 +66,42 @@ public static class CompilerUtils
 
     public static string FindCode(this InvocationExpressionSyntax syntax, IDocumentCompilationContext context)
     {
+        if (syntax.Expression
+            .GetText()
+            .ToString() == "Environment.GetEnvironmentVariable")
+        {
+            var argument = EvaluateArgument(syntax.ArgumentList.Arguments[0].Expression, context);
+
+            if (argument is null)
+                {
+                context.Report(Diagnostic.Create(
+                    CompilationErrors.EnvironmentVariableNameMustBeAConstant,
+                    syntax.GetLocation()
+                ));
+                return "";
+            }
+
+            return Environment.GetEnvironmentVariable(argument.ToString()!) ?? "";
+        }
+
+        if (syntax.Expression
+            .GetText()
+            .ToString() == "File.ReadAllText")
+        {
+            var argument = EvaluateArgument(syntax.ArgumentList.Arguments[0].Expression, context);
+
+            if (argument is null)
+            {
+                context.Report(Diagnostic.Create(
+                    CompilationErrors.EnvironmentVariableNameMustBeAConstant,
+                    syntax.GetLocation()
+                ));
+                return "";
+            }
+
+            return File.ReadAllText(argument.ToString()!) ?? "";
+        }
+
         Compilation compilation = context.Compilation;
         SemanticModel semanticModel = compilation.GetSemanticModel(syntax.SyntaxTree);
         var symbolInfo = semanticModel.GetSymbolInfo(syntax.Expression);
