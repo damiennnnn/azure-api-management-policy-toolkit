@@ -1,22 +1,23 @@
 // Copyright (c) Microsoft Corporation.
 // Licensed under the MIT License.
 
+using System;
 using System.Diagnostics.CodeAnalysis;
+using System.Dynamic;
+using System.Text;
+using System.Threading.Tasks;
 using System.Xml.Linq;
 
 using Microsoft.Azure.ApiManagement.PolicyToolkit.Compiling.Diagnostics;
 using Microsoft.CodeAnalysis;
 using Microsoft.CodeAnalysis.CSharp;
-using Microsoft.CodeAnalysis.CSharp.Syntax;
 using Microsoft.CodeAnalysis.CSharp.Scripting;
+using Microsoft.CodeAnalysis.CSharp.Syntax;
 using Microsoft.CodeAnalysis.Scripting;
-using System.Threading.Tasks;
-using System.Text;
-using System.Dynamic;
 
 namespace Microsoft.Azure.ApiManagement.PolicyToolkit.Compiling;
 
-public static class CompilerUtils
+public static partial class CompilerUtils
 {
     public static string ProcessParameter(this ExpressionSyntax expression, IDocumentCompilationContext context)
     {
@@ -66,40 +67,9 @@ public static class CompilerUtils
 
     public static string FindCode(this InvocationExpressionSyntax syntax, IDocumentCompilationContext context)
     {
-        if (syntax.Expression
-            .GetText()
-            .ToString() == "Environment.GetEnvironmentVariable")
+        if (SupportedExternalMethods.TryGetValue(syntax.Expression.ToString(), out ExternalMethod? method))
         {
-            var argument = EvaluateArgument(syntax.ArgumentList.Arguments[0].Expression, context);
-
-            if (argument is null)
-                {
-                context.Report(Diagnostic.Create(
-                    CompilationErrors.EnvironmentVariableNameMustBeAConstant,
-                    syntax.GetLocation()
-                ));
-                return "";
-            }
-
-            return Environment.GetEnvironmentVariable(argument.ToString()!) ?? "";
-        }
-
-        if (syntax.Expression
-            .GetText()
-            .ToString() == "File.ReadAllText")
-        {
-            var argument = EvaluateArgument(syntax.ArgumentList.Arguments[0].Expression, context);
-
-            if (argument is null)
-            {
-                context.Report(Diagnostic.Create(
-                    CompilationErrors.EnvironmentVariableNameMustBeAConstant,
-                    syntax.GetLocation()
-                ));
-                return "";
-            }
-
-            return File.ReadAllText(argument.ToString()!) ?? "";
+            return method.Invoke(syntax, context);
         }
 
         Compilation compilation = context.Compilation;
@@ -143,7 +113,7 @@ public static class CompilerUtils
                 var global = new ScriptGlobals();
                 StringBuilder scriptBody = new StringBuilder();
 
-                for (int i =0; i < syntax.ArgumentList.Arguments.Count; i++)
+                for (int i = 0; i < syntax.ArgumentList.Arguments.Count; i++)
                 {
                     var arg = syntax.ArgumentList.Arguments[i];
 
