@@ -1,10 +1,18 @@
 // Copyright (c) Microsoft Corporation.
 // Licensed under the MIT License.
 
+using System.Reflection;
+
 using Microsoft.Azure.ApiManagement.PolicyToolkit.Compiling;
 using Microsoft.Azure.ApiManagement.PolicyToolkit.IoC;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
+
+if (args.FirstOrDefault() is "-v" or "--version")
+{ 
+    Console.WriteLine(Assembly.GetExecutingAssembly().GetName().Version); 
+    return 0; 
+}
 
 var config = new ConfigurationBuilder()
     .AddCommandLine(args)

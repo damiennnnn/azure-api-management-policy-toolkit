@@ -12,4 +12,5 @@ public record DirectoryCompilerOptions()
     public required XmlWriterSettings XmlWriterSettings { get; init; }
     public required bool FormatCode { get; init; }
     public required string FileExtension { get; init; }
+    public required string? ConfigJsonPath { get; init; }
 }

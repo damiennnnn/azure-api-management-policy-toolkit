@@ -14,6 +14,7 @@ public class CompilerOptions
     private string OutputPath { get; }
     private bool Format { get; }
     private string FileExtension { get; }
+    private string? ConfigJsonPath { get; }
 
     private XmlWriterSettings XmlWriterSettings => new()
     {
@@ -33,6 +34,14 @@ public class CompilerOptions
 
         FileExtension = configuration["ext"] ?? "xml";
         Format = bool.TryParse(configuration["format"] ?? "true", out var fmt) && fmt;
+
+        ConfigJsonPath = configuration["c"] 
+            ?? configuration["config"] 
+            ?? "config.json";
+
+        ConfigJsonPath = Path.Exists(ConfigJsonPath) 
+            ? Path.GetFullPath(ConfigJsonPath) 
+            : null;
     }
 
     public bool IsProjectSource
@@ -68,6 +77,7 @@ public class CompilerOptions
         FormatCode = Format,
         FileExtension = FileExtension,
         XmlWriterSettings = XmlWriterSettings,
+        ConfigJsonPath = ConfigJsonPath,
     };
 
     public ProjectCompilerOptions ToProjectCompilerOptions() => new()
@@ -80,5 +90,6 @@ public class CompilerOptions
         FormatCode = Format,
         FileExtension = FileExtension,
         XmlWriterSettings = XmlWriterSettings,
+        ConfigJsonPath = ConfigJsonPath,
     };
 }

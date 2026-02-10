@@ -1,6 +1,8 @@
 // Copyright (c) Microsoft Corporation.
 // Licensed under the MIT License.
 
+using System.Text.Json;
+
 using Microsoft.Azure.ApiManagement.PolicyToolkit.Compiling.Diagnostics;
 using Microsoft.CodeAnalysis;
 using Microsoft.CodeAnalysis.CSharp.Syntax;
@@ -12,6 +14,7 @@ namespace Microsoft.Azure.ApiManagement.PolicyToolkit.Compiling;
 /// </summary>
 public static partial class CompilerUtils
 {
+
     private static readonly Dictionary<string, ExternalMethod> SupportedExternalMethods = new()
     {
         { "Environment.GetEnvironmentVariable",
@@ -20,7 +23,47 @@ public static partial class CompilerUtils
         { "File.ReadAllText",
             new ExternalMethod(File.ReadAllText,
                 CompilationErrors.InlinedFileNameMustBeAConstant) },
+        { "JsonProperties.Get",
+            new ExternalMethod(name =>
+            {
+                if (CompileProperties.TryGetString(name, out var value))
+                {
+                    return value;
+                }
+                return null;
+            },
+                CompilationErrors.ExternalValueKeyMustBeAConstant)  }
     };
+
+    public static object? GetFromConfigProperty(IPropertySymbol symbol)
+    {
+        var expressionMethod = symbol.DeclaringSyntaxReferences
+            .Select(r => r.GetSyntax())
+            .OfType<PropertyDeclarationSyntax>()
+            .FirstOrDefault();
+
+        // User-defined config classes can define properties with [JsonProperty] attribute, to be looked up in the current json config
+        // Allows for strong typing of config named values
+        if (expressionMethod is not null)
+        {
+            var jsonProperty = expressionMethod?
+                .AttributeLists
+                .Select(attrListSyn
+                => attrListSyn.Attributes
+                    .First(attrSyn => attrSyn.Name.ToString().Contains("JsonProperty")))
+                .FirstOrDefault();
+
+            var argument = jsonProperty?.ArgumentList?.Arguments[0].Expression.GetFirstToken().ValueText!;
+
+            return (symbol?.Type) switch
+            {
+                { Kind: SymbolKind.ArrayType } => CompileProperties.GetArray(argument),
+                _ => CompileProperties.Get(argument),
+            };
+        }
+
+        return null;
+    }
 
     private class ExternalMethod
     {

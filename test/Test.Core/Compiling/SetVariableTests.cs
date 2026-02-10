@@ -1,6 +1,8 @@
 // Copyright (c) Microsoft Corporation.
 // Licensed under the MIT License.
 
+using System.Text.Json;
+
 namespace Microsoft.Azure.ApiManagement.PolicyToolkit.Compiling;
 
 [TestClass]
@@ -147,6 +149,8 @@ public class SetVariableTests
         [Document]
         public class PolicyDocument : IDocument
         {
+            public dynamic Properties;
+
             public void Inbound(IInboundContext context) {
                 context.SetVariable("Inbound", Environment.GetEnvironmentVariable("test"));
             }
@@ -180,10 +184,34 @@ public class SetVariableTests
         """,
         DisplayName = "Should compile set variable policy with inlined file contents"
     )]
+    [DataRow(
+        """
+        [Document]
+        public class PolicyDocument : IDocument
+        {
+            public void Inbound(IInboundContext context) {
+                context.SetVariable("Inbound", Properties.Get("test"));
+            }
+        }
+        """,
+        """
+        <policies>
+            <inbound>
+                <set-variable name="Inbound" value="testvalue" />
+            </inbound>
+        </policies>
+        """,
+        DisplayName = "Should compile set variable policy with set external value"
+    )]
     public void ShouldCompileSetVariablePolicy(string code, string expectedXml)
     {
+        // Set up external inline test values
         Environment.SetEnvironmentVariable("test", "testinput");
         File.WriteAllText("test.txt", "testinput");
+        CompileProperties.LoadFromJson(JsonSerializer.Serialize(new Dictionary<string, string>
+        {
+            { "test", "testvalue" }
+        }));
 
         code.CompileDocument().Should().BeSuccessful().And.DocumentEquivalentTo(expectedXml);
     }

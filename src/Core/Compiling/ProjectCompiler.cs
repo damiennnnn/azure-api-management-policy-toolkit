@@ -12,6 +12,11 @@ public class ProjectCompiler(DocumentCompiler documentCompiler)
     public async Task<ProjectCompilerResult> Compile(ProjectCompilerOptions options,
         CancellationToken cancellationToken = default(CancellationToken))
     {
+        if (options.ConfigJsonPath is string configPath)
+        {
+            CompileProperties.LoadFromJson(File.ReadAllText(configPath));
+        }
+
         var result = new ProjectCompilerResult();
         var workspace = MSBuildWorkspace.Create();
         await Console.Out.WriteLineAsync($"Opening project '{options.ProjectPath}'");

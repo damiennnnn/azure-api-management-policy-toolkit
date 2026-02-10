@@ -1,11 +1,9 @@
 // Copyright (c) Microsoft Corporation.
 // Licensed under the MIT License.
 
-using System;
+using System.Collections.ObjectModel;
 using System.Diagnostics.CodeAnalysis;
-using System.Dynamic;
 using System.Text;
-using System.Threading.Tasks;
 using System.Xml.Linq;
 
 using Microsoft.Azure.ApiManagement.PolicyToolkit.Compiling.Diagnostics;
@@ -169,6 +167,8 @@ public static partial class CompilerUtils
 
     public static string FindCode(this MemberAccessExpressionSyntax syntax, IDocumentCompilationContext context)
     {
+        var text = syntax.ToString();
+
         Compilation compilation = context.Compilation;
         SemanticModel semanticModel = compilation.GetSemanticModel(syntax.SyntaxTree);
         var symbolInfo = semanticModel.GetSymbolInfo(syntax);
@@ -176,10 +176,16 @@ public static partial class CompilerUtils
 
         if (symbol is not IFieldSymbol fieldSymbol)
         {
+            if (symbol is IPropertySymbol propertySymbol 
+                && GetFromConfigProperty(propertySymbol) is string property)
+            {
+                return property;
+            }
+
             context.Report(Diagnostic.Create(
-                CompilationErrors.InvalidConstantReference,
-                syntax.GetLocation()
-            ));
+            CompilationErrors.InvalidConstantReference,
+            syntax.GetLocation()));
+
             return "";
         }
 
@@ -259,6 +265,19 @@ public static partial class CompilerUtils
         };
     }
 
+    public static InitializerValue ProcessArray(this InvocationExpressionSyntax invocationSyntax, IDocumentCompilationContext context)
+    {
+        var argument = EvaluateArgument(invocationSyntax.ArgumentList.Arguments[0].Expression, context);
+
+        var result = CompileProperties
+            .GetArray(argument!.ToString()!)!
+            .Select(e => new InitializerValue() { Value = e, Node = invocationSyntax })
+            .ToList()
+            .AsReadOnly();
+
+        return new InitializerValue { UnnamedValues = result, Node = invocationSyntax };
+    }
+
     public static InitializerValue Process(
         this CollectionExpressionSyntax collectionSyntax,
         IDocumentCompilationContext context)
@@ -282,6 +301,26 @@ public static partial class CompilerUtils
         return new InitializerValue { UnnamedValues = result, Node = creationSyntax };
     }
 
+    public static InitializerValue Process(
+        this MemberAccessExpressionSyntax memberSyntax,
+        IDocumentCompilationContext context)
+    {
+        Compilation compilation = context.Compilation;
+        SemanticModel semanticModel = compilation.GetSemanticModel(memberSyntax.SyntaxTree);
+        var symbolInfo = semanticModel.GetSymbolInfo(memberSyntax);
+        var symbol = symbolInfo.Symbol;
+
+        IReadOnlyCollection<InitializerValue>? result = default;
+
+        if (symbol is IPropertySymbol propertySymbol 
+            && GetFromConfigProperty(propertySymbol) is string[] properties)
+        {
+            result = properties?.Select(p => new InitializerValue { Value = p, Node = memberSyntax }).ToList();
+        }
+
+        return new InitializerValue { UnnamedValues = result, Node = memberSyntax };
+    }
+
     public static InitializerValue ProcessExpression(
         this ExpressionSyntax expression,
         IDocumentCompilationContext context)
@@ -292,6 +331,10 @@ public static partial class CompilerUtils
             ArrayCreationExpressionSyntax array => array.Process(context),
             ImplicitArrayCreationExpressionSyntax array => array.Process(context),
             CollectionExpressionSyntax collection => collection.Process(context),
+            InvocationExpressionSyntax invocation
+            when invocation.Expression.ToString() == "JsonProperties.GetArray"
+            => invocation.ProcessArray(context),
+            MemberAccessExpressionSyntax member => member.Process(context),
             _ => new InitializerValue { Value = expression.ProcessParameter(context), Node = expression }
         };
     }

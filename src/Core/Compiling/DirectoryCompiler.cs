@@ -21,8 +21,13 @@ public class DirectoryCompiler(DocumentCompiler compiler)
 
     public Task<DirectoryCompilerResult> Compile(DirectoryCompilerOptions options)
     {
-        var files = Directory.GetFiles(options.SourceFolder, "*.cs", SearchOption.AllDirectories)
-            .Where(p => PathUtils.IsNotInObjOrBinFolder(Path.GetFullPath(p)));
+        if (options.ConfigJsonPath is string configPath)
+        {
+            CompileProperties.LoadFromJson(File.ReadAllText(configPath));
+        }
+
+        var files = Directory.GetFiles(options.SourceFolder, "*.cs", SearchOption.AllDirectories);
+           
 
         DirectoryCompilerResult result = new();
         foreach (var file in files)

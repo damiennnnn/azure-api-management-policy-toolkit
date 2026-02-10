@@ -1,6 +1,8 @@
 // Copyright (c) Microsoft Corporation.
 // Licensed under the MIT License.
 
+using System.Text.Json;
+
 namespace Microsoft.Azure.ApiManagement.PolicyToolkit.Compiling;
 
 [TestClass]
@@ -236,8 +238,44 @@ public class CorsTests
         """,
         DisplayName = "Should compile cors policy with expose headers"
     )]
+    [DataRow(
+        """
+        [Document]
+        public class PolicyDocument : IDocument
+        {
+            public void Inbound(IInboundContext context) {
+                context.Cors(new CorsConfig()
+                    {
+                        AllowedOrigins = ExternalValue.Get("test"),
+                        AllowedHeaders = ["accept", "content-type"],
+                    });
+            }
+        }
+        """,
+        """
+        <policies>
+            <inbound>
+                <cors>
+                    <allowed-origins>
+                        <origin>contoso.com</origin>
+                    </allowed-origins>
+                    <allowed-headers>
+                        <header>accept</header>
+                        <header>content-type</header>
+                    </allowed-headers>
+                </cors>
+            </inbound>
+        </policies>
+        """,
+        DisplayName = "Should compile cors policy with invocation expression"
+    )]
     public void ShouldCompileCorsPolicy(string code, string expectedXml)
     {
+        CompileProperties.LoadFromJson(JsonSerializer.Serialize(new Dictionary<string, string[]>
+        {
+            { "test", new string[] { "origin-1", "origin-2" } }
+        }));
+
         code.CompileDocument().Should().BeSuccessful().And.DocumentEquivalentTo(expectedXml);
     }
 }

@@ -281,4 +281,15 @@ public static class CompilationErrors
         description: "Description.",
         helpLinkUri: "TODO",
         customTags: ["APIM", "ApiManagement"]);
+
+    public readonly static DiagnosticDescriptor ExternalValueKeyMustBeAConstant = new(
+        "APIM2015",
+        "External value key must be a constant",
+        "External value key must be a constant",
+        "PolicyDocumentCompilation",
+        DiagnosticSeverity.Error,
+        isEnabledByDefault: true,
+        description: "Description.",
+        helpLinkUri: "TODO",
+        customTags: ["APIM", "ApiManagement"]);
 }
