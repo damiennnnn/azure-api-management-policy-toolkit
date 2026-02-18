@@ -52,4 +52,21 @@ public static class FileUtils
 
         return targetFile;
     }
+
+    public static async Task<string> WriteToFileRawAsync(Data data)
+    {
+        var fileRelativePath = Path.GetDirectoryName(Path.GetRelativePath(data.SourceFolder, data.SourceFilePath))!;
+        var targetFolder = Path.Combine(data.OutputFolder, fileRelativePath);
+        var targetFile = Path.Combine(targetFolder, data.OutputFilePath);
+        var directoryPath = Path.GetDirectoryName(targetFile);
+        if (directoryPath is not null && !Directory.Exists(directoryPath))
+        {
+            Directory.CreateDirectory(directoryPath);
+        }
+
+        using var io = new FileStream(targetFile, FileMode.Create, FileAccess.Write, FileShare.None, 4096, useAsync: true);
+        await data.Element.SaveAsync(io, SaveOptions.None, CancellationToken.None);
+
+        return targetFile;
+    }
 }

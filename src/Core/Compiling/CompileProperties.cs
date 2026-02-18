@@ -61,6 +61,15 @@ public static class CompileProperties
         return default;
     }
 
+    public static JsonElement? GetElement(string key)
+    {
+        if (All.TryGetValue(key, out JsonElement element))
+        {
+            return element;
+        }
+        return default;
+    }
+
     public static void LoadFromJson(string json)
     {
         try

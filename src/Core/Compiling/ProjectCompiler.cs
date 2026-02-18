@@ -1,6 +1,8 @@
 // Copyright (c) Microsoft Corporation.
 // Licensed under the MIT License.
 
+using System.Text.Json;
+
 using Microsoft.Azure.ApiManagement.PolicyToolkit.IO;
 using Microsoft.CodeAnalysis;
 using Microsoft.CodeAnalysis.MSBuild;
@@ -60,8 +62,44 @@ public class ProjectCompiler(DocumentCompiler documentCompiler)
             var root = await syntaxTree.GetRootAsync(cancellationToken);
             var semantics = compilation.GetSemanticModel(syntaxTree);
             var documents = root.GetDocumentAttributedClasses(semantics);
+
             foreach (var document in documents)
             {
+                if (document.ExtractPerOperationConfigName(semantics) is string perOperationConfigName 
+                    && CompileProperties.GetElement(perOperationConfigName) is JsonElement element)
+                {
+                    await Console.Out.WriteLineAsync(
+                            $"Document '{document.Identifier}' is marked as per-operation with config name '{perOperationConfigName}'");
+                    
+                    foreach (var operation in element.EnumerateObject())
+                    {
+                        await Console.Out.WriteLineAsync($"Processing operation '{operation.Name}' for document '{document.Identifier}'");
+
+                        var operationResult = documentCompiler.Compile(compilation, document, operation);
+                        result.DocumentResults.Add(operationResult);
+
+                        foreach (var error in operationResult.Errors)
+                        {
+                            await Console.Error.WriteLineAsync(error.ToString());
+                        }
+
+                        var operationPolicyFileName = $"{document.ExtractDocumentFileName(semantics)}-{operation.Name}";
+                        var operationTargetFile = await FileUtils.WriteToFileRawAsync(new FileUtils.Data()
+                        {
+                            Element = operationResult.Document,
+                            SourceFolder = Path.GetDirectoryName(options.ProjectPath)!,
+                            SourceFilePath = syntaxTree.FilePath,
+                            OutputFolder = options.OutputFolder,
+                            OutputFilePath = PathUtils.PrepareOutputPath(operationPolicyFileName, options.FileExtension),
+                            FormatCode = options.FormatCode,
+                            XmlWriterSettings = options.XmlWriterSettings,
+                        });
+                        await Console.Out.WriteLineAsync($"File '{operationTargetFile}' created");
+                    }
+
+                    continue;
+                }
+
                 var documentResult = documentCompiler.Compile(compilation, document);
                 result.DocumentResults.Add(documentResult);
 
@@ -71,7 +109,7 @@ public class ProjectCompiler(DocumentCompiler documentCompiler)
                 }
 
                 var policyFileName = document.ExtractDocumentFileName(semantics);
-                var targetFile = FileUtils.WriteToFile(new FileUtils.Data()
+                var targetFile = await FileUtils.WriteToFileRawAsync(new FileUtils.Data()
                 {
                     Element = documentResult.Document,
                     SourceFolder = Path.GetDirectoryName(options.ProjectPath)!,
@@ -86,6 +124,10 @@ public class ProjectCompiler(DocumentCompiler documentCompiler)
 
             await Console.Out.WriteLineAsync($"File '{syntaxTree.FilePath}' processed");
         }
+
+        await Parallel.ForEachAsync(onlyUserSyntaxTrees, async (syntaxTree, ct) => {
+            
+        });
 
         return result;
     }

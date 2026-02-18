@@ -292,4 +292,15 @@ public static class CompilationErrors
         description: "Description.",
         helpLinkUri: "TODO",
         customTags: ["APIM", "ApiManagement"]);
+
+    public readonly static DiagnosticDescriptor OperationContextRequired = new(
+        "APIM2016",
+        "Operation context required for foreach loop",
+        "Operation context required for foreach loop",
+        "PolicyDocumentCompilation",
+        DiagnosticSeverity.Error,
+        isEnabledByDefault: true,
+        description: "Description.",
+        helpLinkUri: "TODO",
+        customTags: ["APIM", "ApiManagement"]);
 }

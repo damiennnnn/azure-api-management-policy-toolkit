@@ -2,6 +2,7 @@
 // Licensed under the MIT License.
 
 using Microsoft.Azure.ApiManagement.PolicyToolkit.Authoring;
+using Microsoft.Azure.ApiManagement.PolicyToolkit.Authoring.Attributes;
 using Microsoft.CodeAnalysis;
 using Microsoft.CodeAnalysis.CSharp.Syntax;
 
@@ -41,6 +42,14 @@ public static class SyntaxExtensions
         return fragmentArgument != null ? DocumentType.Fragment : DocumentType.Policy;
     }
 
+    public static string? ExtractPerOperationConfigName(this ClassDeclarationSyntax document, SemanticModel model)
+    {
+        var attributeSyntax = document.AttributeLists.GetFirstAttributeOfType<PerOperationContextAttribute>(model);
+        var attributeArgumentExpression =
+            attributeSyntax?.ArgumentList?.Arguments.FirstOrDefault()?.Expression as LiteralExpressionSyntax;
+        return attributeArgumentExpression?.Token.ValueText;
+    }
+
     public static IEnumerable<ClassDeclarationSyntax> GetDocumentAttributedClasses(this SyntaxNode syntax,
         SemanticModel semanticModel)
     {
@@ -54,6 +63,21 @@ public static class SyntaxExtensions
                 .FirstOrDefault(attribute =>
                     SymbolEqualityComparer.Default.Equals(semanticModel.GetTypeInfo(attribute).Type,
                         documentAttributeSymbol)) != null
+            );
+    }
+
+    public static IEnumerable<ClassDeclarationSyntax> GetPerOperationAttributedClasses(this IEnumerable<ClassDeclarationSyntax> classes,
+        SemanticModel semanticModel)
+    {
+        var perOperationAttributeSymbol =
+            semanticModel.Compilation.GetTypeByMetadataName(typeof(PerOperationContextAttribute).FullName!);
+
+        return classes
+            .Where(c => c.AttributeLists
+                .SelectMany(a => a.Attributes)
+                .FirstOrDefault(attribute =>
+                    SymbolEqualityComparer.Default.Equals(semanticModel.GetTypeInfo(attribute).Type,
+                        perOperationAttributeSymbol)) != null
             );
     }
 }

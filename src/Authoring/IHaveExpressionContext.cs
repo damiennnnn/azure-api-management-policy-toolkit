@@ -5,7 +5,7 @@ using Microsoft.Azure.ApiManagement.PolicyToolkit.Authoring.Expressions;
 
 namespace Microsoft.Azure.ApiManagement.PolicyToolkit.Authoring;
 
-public interface IHaveExpressionContext
+public interface IHaveExpressionContext : IInlineHelpers
 {
     IExpressionContext ExpressionContext { get; }
 }

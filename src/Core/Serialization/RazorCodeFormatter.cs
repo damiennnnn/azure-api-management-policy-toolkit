@@ -1,6 +1,7 @@
 // Copyright (c) Microsoft Corporation.
 // Licensed under the MIT License.
 
+using System.Security;
 using System.Text;
 using System.Text.RegularExpressions;
 
@@ -34,7 +35,7 @@ public static class RazorCodeFormatter
         }
 
         result.Append(code, lastIndex, code.Length - lastIndex);
-        return result.ToString();
+        return SecurityElement.Escape(result.ToString());
     }
 
     public static string ToCleanXml(string code, out IReadOnlyDictionary<string, string> markerToCode)

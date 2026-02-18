@@ -2,17 +2,18 @@
 // Licensed under the MIT License.
 
 using System.Collections.Immutable;
+using System.Text.Json;
 using System.Xml.Linq;
 
 using Microsoft.CodeAnalysis;
 
 namespace Microsoft.Azure.ApiManagement.PolicyToolkit.Compiling;
 
-public class DocumentCompilationContext(Compilation compilation, SyntaxNode syntaxRoot, XElement currentElement)
+public class DocumentCompilationContext(Compilation compilation, SyntaxNode syntaxRoot, XElement currentElement, JsonProperty? operationContext = default)
     : IDocumentCompilationContext, IDocumentCompilationResult
 {
-    public DocumentCompilationContext(IDocumentCompilationContext parent, XElement currentElement)
-        : this(parent.Compilation, parent.SyntaxRoot, currentElement)
+    public DocumentCompilationContext(IDocumentCompilationContext parent, XElement currentElement, JsonProperty? operationContext = default)
+        : this(parent.Compilation, parent.SyntaxRoot, currentElement, parent.PerOperationContext)
     {
         RootElement = parent.RootElement;
         Diagnostics = parent.Diagnostics;
@@ -29,4 +30,6 @@ public class DocumentCompilationContext(Compilation compilation, SyntaxNode synt
 
     public XElement Document => CurrentElement;
     public ImmutableArray<Diagnostic> Errors => [..Diagnostics];
+
+    public JsonProperty? PerOperationContext { get; set; } = operationContext;
 }

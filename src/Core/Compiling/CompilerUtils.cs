@@ -6,6 +6,7 @@ using System.Diagnostics.CodeAnalysis;
 using System.Text;
 using System.Xml.Linq;
 
+using Microsoft.Azure.ApiManagement.PolicyToolkit.Authoring;
 using Microsoft.Azure.ApiManagement.PolicyToolkit.Compiling.Diagnostics;
 using Microsoft.CodeAnalysis;
 using Microsoft.CodeAnalysis.CSharp;
@@ -27,20 +28,10 @@ public static partial class CompilerUtils
                 return FindCode(syntax, context);
             case MemberAccessExpressionSyntax syntax:
                 return FindCode(syntax, context);
-            // case InterpolatedStringExpressionSyntax syntax:
-            //     var interpolationParts = syntax.Contents.Select(c => c switch
-            //     {
-            //         InterpolatedStringTextSyntax text => text.TextToken.ValueText,
-            //         InterpolationSyntax interpolation =>
-            //             $"{{context.Variables[\"{interpolation.Expression.ToString()}\"]}}",
-            //         _ => ""
-            //     });
-            //     var interpolationExpression = CSharpSyntaxTree
-            //         .ParseText($"context => $\"{string.Join("", interpolationParts)}\"").GetRoot();
-            //     var lambda = interpolationExpression.DescendantNodesAndSelf().OfType<LambdaExpressionSyntax>()
-            //         .FirstOrDefault();
-            //     lambda = Normalize(lambda!);
-            //     return $"@({lambda.ExpressionBody})";
+            case InterpolatedStringExpressionSyntax syntax:
+                var interpolationParts = string.Join("", syntax.Contents.Select(c => c.ProcessInterpolation(context)));
+
+                return $@"@($""{ interpolationParts }"")";
             default:
                 context.Report(Diagnostic.Create(
                     CompilationErrors.NotSupportedParameter,
@@ -65,7 +56,7 @@ public static partial class CompilerUtils
 
     public static string FindCode(this InvocationExpressionSyntax syntax, IDocumentCompilationContext context)
     {
-        if (SupportedExternalMethods.TryGetValue(syntax.Expression.ToString(), out ExternalMethod? method))
+        if (InlineMethods.TryGetValue(syntax.Expression.ToString(), out InlineMethod? method))
         {
             return method.Invoke(syntax, context);
         }
@@ -177,7 +168,7 @@ public static partial class CompilerUtils
         if (symbol is not IFieldSymbol fieldSymbol)
         {
             if (symbol is IPropertySymbol propertySymbol 
-                && GetFromConfigProperty(propertySymbol) is string property)
+                && GetFromConfigProperty(propertySymbol, context) is string property)
             {
                 return property;
             }
@@ -265,7 +256,9 @@ public static partial class CompilerUtils
         };
     }
 
-    public static InitializerValue ProcessArray(this InvocationExpressionSyntax invocationSyntax, IDocumentCompilationContext context)
+    public static InitializerValue ProcessArray(
+        this InvocationExpressionSyntax invocationSyntax,
+        IDocumentCompilationContext context)
     {
         var argument = EvaluateArgument(invocationSyntax.ArgumentList.Arguments[0].Expression, context);
 
@@ -311,12 +304,20 @@ public static partial class CompilerUtils
         var symbol = symbolInfo.Symbol;
 
         IReadOnlyCollection<InitializerValue>? result = default;
-
-        if (symbol is IPropertySymbol propertySymbol 
-            && GetFromConfigProperty(propertySymbol) is string[] properties)
+        if (symbol is IPropertySymbol propertySymbol)
         {
-            result = properties?.Select(p => new InitializerValue { Value = p, Node = memberSyntax }).ToList();
+            var getFromConfigProperty = GetFromConfigProperty(propertySymbol, context);
+
+            if (getFromConfigProperty is string[] properties)
+            {
+                result = properties?.Select(p => new InitializerValue { Value = p, Node = memberSyntax }).ToList();
+            }
+            else if (getFromConfigProperty is string property)
+            {
+                return new InitializerValue { Value = property, Node = memberSyntax };
+            }
         }
+
 
         return new InitializerValue { UnnamedValues = result, Node = memberSyntax };
     }

@@ -3,6 +3,7 @@
 
 using System.Xml.Linq;
 
+using Microsoft.Azure.ApiManagement.PolicyToolkit.Authoring;
 using Microsoft.Azure.ApiManagement.PolicyToolkit.Compiling.Diagnostics;
 using Microsoft.CodeAnalysis;
 using Microsoft.CodeAnalysis.CSharp;
@@ -32,6 +33,7 @@ public class IfStatementCompiler : ISyntaxCompiler
         IfStatementSyntax currentIf;
         do
         {
+            string? toAdd = null;
             currentIf = nextIf;
 
             if (currentIf.Statement is not BlockSyntax block)
@@ -47,20 +49,39 @@ public class IfStatementCompiler : ISyntaxCompiler
 
             if (currentIf.Condition is not InvocationExpressionSyntax condition)
             {
-                context.Report(Diagnostic.Create(
-                    CompilationErrors.ExpressionNotSupported,
-                    currentIf.Condition.GetLocation(),
-                    currentIf.Condition.GetType().Name,
-                    nameof(InvocationExpressionSyntax)
-                ));
-                nextIf = currentIf.Else?.Statement as IfStatementSyntax;
-                continue;
+                if ( currentIf.Condition is BinaryExpressionSyntax binaryExpression 
+                    && binaryExpression.Left is InvocationExpressionSyntax invocation 
+                    && invocation.Expression.ToString() == $"context.{nameof(IInboundContext.GetVariable)}")
+                {
+                    var left = CompilerUtils.ProcessParameter(invocation, context);
+                    var right = CompilerUtils.ProcessParameter(binaryExpression.Right, context);
+                    var operation = binaryExpression.OperatorToken.ValueText;
+
+                    if (string.IsNullOrWhiteSpace(left)) right = @"""""";
+                    if (string.IsNullOrWhiteSpace(right)) right = @"""""";
+                    if (binaryExpression.Right is MemberAccessExpressionSyntax) right = $@"""{right}""";
+
+                    toAdd = $"@({left} {operation} {right})";
+                }
+                else
+                {
+                    context.Report(Diagnostic.Create(
+                        CompilationErrors.ExpressionNotSupported,
+                        currentIf.Condition.GetLocation(),
+                        currentIf.Condition.GetType().Name,
+                        nameof(InvocationExpressionSyntax)
+                    ));
+                    nextIf = currentIf.Else?.Statement as IfStatementSyntax;
+                    continue;
+                }
             }
+
+            toAdd ??= CompilerUtils.FindCode(currentIf.Condition as InvocationExpressionSyntax, context);
 
             var section = new XElement("when");
             var innerContext = new DocumentCompilationContext(context, section);
             _blockCompiler.Value.Compile(innerContext, block);
-            section.Add(new XAttribute("condition", CompilerUtils.FindCode(condition, context)));
+            section.Add(new XAttribute("condition", toAdd));
             choose.Add(section);
 
             nextIf = currentIf.Else?.Statement as IfStatementSyntax;

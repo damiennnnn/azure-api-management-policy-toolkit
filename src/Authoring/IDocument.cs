@@ -1,6 +1,8 @@
 // Copyright (c) Microsoft Corporation.
 // Licensed under the MIT License.
 
+using System.Dynamic;
+
 namespace Microsoft.Azure.ApiManagement.PolicyToolkit.Authoring;
 
 public interface IDocument

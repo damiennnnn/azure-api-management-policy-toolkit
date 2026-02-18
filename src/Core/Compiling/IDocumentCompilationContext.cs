@@ -1,6 +1,7 @@
 // Copyright (c) Microsoft Corporation.
 // Licensed under the MIT License.
 
+using System.Text.Json;
 using System.Xml.Linq;
 
 using Microsoft.CodeAnalysis;
@@ -18,4 +19,6 @@ public interface IDocumentCompilationContext
 
     XElement RootElement { get; }
     XElement CurrentElement { get; }
+
+    JsonProperty? PerOperationContext { get; set; }
 }

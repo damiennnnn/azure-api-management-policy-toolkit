@@ -1,6 +1,7 @@
 // Copyright (c) Microsoft Corporation.
 // Licensed under the MIT License.
 
+using System.Text.Json;
 using System.Xml.Linq;
 
 using Microsoft.Azure.ApiManagement.PolicyToolkit.Authoring;
@@ -20,13 +21,13 @@ public class DocumentCompiler
         _blockCompiler = blockCompiler;
     }
 
-    public IDocumentCompilationResult Compile(Compilation compilation, ClassDeclarationSyntax document)
+    public IDocumentCompilationResult Compile(Compilation compilation, ClassDeclarationSyntax document, JsonProperty? perOperationContext = default)
     {
         var semanticModel = compilation.GetSemanticModel(document.SyntaxTree);
         var documentType = document.ExtractDocumentType(semanticModel);
         var methods = document.DescendantNodes().OfType<MethodDeclarationSyntax>();
         var rootElement = new XElement(documentType == DocumentType.Fragment ? "fragment" : "policies");
-        var context = new DocumentCompilationContext(compilation, document, rootElement);
+        var context = new DocumentCompilationContext(compilation, document, rootElement, perOperationContext);
 
         if (documentType == DocumentType.Fragment)
             CompileFragment(context, methods);
