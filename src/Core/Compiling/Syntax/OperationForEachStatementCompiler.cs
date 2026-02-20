@@ -41,7 +41,7 @@ public class OperationForEachStatementCompiler : ISyntaxCompiler
             return;
         }
 
-        if (forEachStatement.Expression.ToString() == $"context.{nameof(IInlineHelpers.Operations)}()")
+        if (forEachStatement.Expression.ToString() == $"context.{nameof(IInlineHelpers.DataSets)}()")
         {
             var operation = operations.Value.EnumerateObject();
 

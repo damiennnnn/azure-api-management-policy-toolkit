@@ -22,19 +22,20 @@ public interface IInlineHelpers
     string GetVariable([ExpressionAllowed] string name, string? defaultValue = "");
     int GetVariable([ExpressionAllowed] string name, int defaultValue);
     /// <summary>
-    /// Allows iteration over all JSON objects in the current operation context.
+    /// Allows iteration over all JSON objects in the current configuration context.
     /// 
     /// <br/>
     /// <c>config.json</c> must contain multiple JSON objects with defined properties.
     /// <br/>
     /// 
     /// Code blocks will be replicated for each JSON object in the collection, allowing for dynamic policy generation based on the configuration.
+    /// The values within the current data set will be used for these blocks.
     /// </summary>
     /// <returns></returns>
-    PerOperationContextHelper Operations();
+    ConfigDataSetEnumerable DataSets();
 }
 
-public class PerOperationContextHelper : IEnumerable
+public class ConfigDataSetEnumerable : IEnumerable
 {
     public IEnumerator GetEnumerator()
     {

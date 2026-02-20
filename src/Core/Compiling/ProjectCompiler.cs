@@ -5,6 +5,7 @@ using System.Text.Json;
 
 using Microsoft.Azure.ApiManagement.PolicyToolkit.IO;
 using Microsoft.CodeAnalysis;
+using Microsoft.CodeAnalysis.CSharp.Syntax;
 using Microsoft.CodeAnalysis.MSBuild;
 
 namespace Microsoft.Azure.ApiManagement.PolicyToolkit.Compiling;
@@ -70,61 +71,71 @@ public class ProjectCompiler(DocumentCompiler documentCompiler)
                 {
                     await Console.Out.WriteLineAsync(
                             $"Document '{document.Identifier}' is marked as per-operation with config name '{perOperationConfigName}'");
-                    
-                    foreach (var operation in element.EnumerateObject())
+
+                    // For a file marked with the CompileContext attribute, look for the object with the key specified in that attribute.
+                    // Every keyed object underneath the root object will be a `context`, where the properties within that object are used for a compilation.
+                    // Every keyed object thus represents an individual operation.
+
+                    await Parallel.ForEachAsync(element.EnumerateObject(), async (operation, ct) =>
                     {
                         await Console.Out.WriteLineAsync($"Processing operation '{operation.Name}' for document '{document.Identifier}'");
 
-                        var operationResult = documentCompiler.Compile(compilation, document, operation);
-                        result.DocumentResults.Add(operationResult);
-
-                        foreach (var error in operationResult.Errors)
-                        {
-                            await Console.Error.WriteLineAsync(error.ToString());
-                        }
-
-                        var operationPolicyFileName = $"{document.ExtractDocumentFileName(semantics)}-{operation.Name}";
-                        var operationTargetFile = await FileUtils.WriteToFileRawAsync(new FileUtils.Data()
-                        {
-                            Element = operationResult.Document,
-                            SourceFolder = Path.GetDirectoryName(options.ProjectPath)!,
-                            SourceFilePath = syntaxTree.FilePath,
-                            OutputFolder = options.OutputFolder,
-                            OutputFilePath = PathUtils.PrepareOutputPath(operationPolicyFileName, options.FileExtension),
-                            FormatCode = options.FormatCode,
-                            XmlWriterSettings = options.XmlWriterSettings,
-                        });
-                        await Console.Out.WriteLineAsync($"File '{operationTargetFile}' created");
-                    }
+                        await CompileAndSave(options,
+                            document,
+                            compilation,
+                            result,
+                            semantics,
+                            syntaxTree,
+                            $"{document.ExtractDocumentFileName(semantics)}-{operation.Name}",
+                            operation);
+                    });
 
                     continue;
                 }
 
-                var documentResult = documentCompiler.Compile(compilation, document);
-                result.DocumentResults.Add(documentResult);
+                await CompileAndSave(options, 
+                    document, 
+                    compilation, 
+                    result, 
+                    semantics, 
+                    syntaxTree, document.ExtractDocumentFileName(semantics));
 
-                foreach (var error in documentResult.Errors)
-                {
-                    await Console.Error.WriteLineAsync(error.ToString());
-                }
-
-                var policyFileName = document.ExtractDocumentFileName(semantics);
-                var targetFile = await FileUtils.WriteToFileRawAsync(new FileUtils.Data()
-                {
-                    Element = documentResult.Document,
-                    SourceFolder = Path.GetDirectoryName(options.ProjectPath)!,
-                    SourceFilePath = syntaxTree.FilePath,
-                    OutputFolder = options.OutputFolder,
-                    OutputFilePath = PathUtils.PrepareOutputPath(policyFileName, options.FileExtension),
-                    FormatCode = options.FormatCode,
-                    XmlWriterSettings = options.XmlWriterSettings,
-                });
-                await Console.Out.WriteLineAsync($"File '{targetFile}' created");
             }
 
             await Console.Out.WriteLineAsync($"File '{syntaxTree.FilePath}' processed");
         }
 
         return result;
+    }
+
+    private async Task CompileAndSave(ProjectCompilerOptions options,
+        ClassDeclarationSyntax document,
+        Compilation compilation,
+        ProjectCompilerResult result,
+        SemanticModel semantics,
+        SyntaxTree syntaxTree,
+        string fileName,
+        JsonProperty? context = default)
+    {
+        var documentResult = documentCompiler.Compile(compilation, document, context);
+        result.DocumentResults.Add(documentResult);
+
+        foreach (var error in documentResult.Errors)
+        {
+            await Console.Error.WriteLineAsync(error.ToString());
+        }
+
+        var targetFile = await FileUtils.WriteToFileRawAsync(new FileUtils.Data()
+        {
+            Element = documentResult.Document,
+            SourceFolder = Path.GetDirectoryName(options.ProjectPath)!,
+            SourceFilePath = syntaxTree.FilePath,
+            OutputFolder = options.OutputFolder,
+            OutputFilePath = PathUtils.PrepareOutputPath(fileName, options.FileExtension),
+            FormatCode = options.FormatCode,
+            XmlWriterSettings = options.XmlWriterSettings,
+        });
+
+        await Console.Out.WriteLineAsync($"File '{targetFile}' created");
     }
 }
