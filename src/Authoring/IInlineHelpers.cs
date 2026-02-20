@@ -17,9 +17,10 @@ public interface IInlineHelpers
     /// Compiled to inline policy expression. Can be used in an if condition.
     /// </summary>
     /// <param name="name">The name of the variable or expression to retrieve. Expressions may be allowed depending on the context.</param>
+    /// <param name="defaultValue">An optional default value to return if the specified variable does not exist. Defaults to an empty string.</param>
     /// <returns>The value of the specified variable or expression, or <see langword="null"/> if the variable does not exist.</returns>
-    object? GetVariable([ExpressionAllowed] string name);
-
+    string GetVariable([ExpressionAllowed] string name, string? defaultValue = "");
+    int GetVariable([ExpressionAllowed] string name, int defaultValue);
     /// <summary>
     /// Allows iteration over all JSON objects in the current operation context.
     /// 

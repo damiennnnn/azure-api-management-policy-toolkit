@@ -6,7 +6,7 @@
 namespace Microsoft.Azure.ApiManagement.PolicyToolkit.Authoring.Attributes;
 
 [AttributeUsage(AttributeTargets.Class)]
-public class PerOperationContextAttribute(string? name) : Attribute
+public class CompileContextAttribute(string? name) : Attribute
 {
     public string? Name { get; } = name;
 }

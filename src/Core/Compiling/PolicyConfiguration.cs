@@ -25,9 +25,14 @@ public static partial class CompilerUtils
             new InlineMethod(File.ReadAllText,
                 CompilationErrors.InlinedFileNameMustBeAConstant) },
         { "context.GetVariable", 
-            new InlineMethod(param =>
+            new MultiparamInlineMethod(param =>
             {
-                return @$"context.Variables.GetValueOrDefault<string>(""{param}"", """")";
+                if (param.ElementAtOrDefault(1) is string element)
+                {
+                    return @$"context.Variables.GetValueOrDefault<{(int.TryParse(element, out int result) ? "<int>" : "<string>")}>(""{param[0]}"", ""{param[1]}"")";
+                }
+
+                return @$"context.Variables.GetValueOrDefault<string>(""{param[0]}"", """")";
             },
                 CompilationErrors.ExternalValueKeyMustBeAConstant)  },
         { "context.Placeholder",
@@ -71,7 +76,11 @@ public static partial class CompilerUtils
             // Support per-operation context properties, allowing one policy document to be used for multiple operations with different config values
             if (context.PerOperationContext is JsonProperty jsonProperty)
             {
-                var propertyValue = jsonProperty.Value.EnumerateObject().FirstOrDefault(p => p.NameEquals(argument)).Value;
+                JsonElement propertyValue;
+                if (jsonProperty.Value.ValueKind == JsonValueKind.Object)
+                    propertyValue = jsonProperty.Value.EnumerateObject().FirstOrDefault(p => p.NameEquals(argument)).Value;
+                else
+                    propertyValue = jsonProperty.Value;
 
                 return (symbol?.Type) switch
                 {
@@ -120,12 +129,38 @@ public static partial class CompilerUtils
         return string.Empty;
     }
 
+    private class MultiparamInlineMethod : InlineMethod
+    {
+        public new Func<string[], string?> Method { get; }
+
+        public override string Invoke(InvocationExpressionSyntax syntax, IDocumentCompilationContext context)
+        {
+            var arguments = syntax.ArgumentList.Arguments
+                .Select(arg => EvaluateArgument(arg.Expression, context)?.ToString() ?? "")
+                .ToArray();
+            if (arguments.Any(arg => string.IsNullOrEmpty(arg)))
+            {
+                context.Report(Diagnostic.Create(
+                    ErrorDescriptor,
+                    syntax.GetLocation()
+                ));
+                return "";
+            }
+            return Method(arguments) ?? "";
+        }
+
+        public MultiparamInlineMethod(Func<string[], string?> method, DiagnosticDescriptor errorDescriptor) : base(null!, errorDescriptor)
+        {
+            Method = method;
+        }
+    }
+
     private class InlineMethod
     {
-        public Func<string, string?> Method { get; }
+        public virtual Func<string, string?> Method { get; }
         public DiagnosticDescriptor ErrorDescriptor { get; }
 
-        public string Invoke(InvocationExpressionSyntax syntax, IDocumentCompilationContext context)
+        public virtual string Invoke(InvocationExpressionSyntax syntax, IDocumentCompilationContext context)
         {
             // Currently only supporting a single argument
             // Can be expanded later

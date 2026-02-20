@@ -42,9 +42,9 @@ public static class SyntaxExtensions
         return fragmentArgument != null ? DocumentType.Fragment : DocumentType.Policy;
     }
 
-    public static string? ExtractPerOperationConfigName(this ClassDeclarationSyntax document, SemanticModel model)
+    public static string? ExtractCompileContextName(this ClassDeclarationSyntax document, SemanticModel model)
     {
-        var attributeSyntax = document.AttributeLists.GetFirstAttributeOfType<PerOperationContextAttribute>(model);
+        var attributeSyntax = document.AttributeLists.GetFirstAttributeOfType<CompileContextAttribute>(model);
         var attributeArgumentExpression =
             attributeSyntax?.ArgumentList?.Arguments.FirstOrDefault()?.Expression as LiteralExpressionSyntax;
         return attributeArgumentExpression?.Token.ValueText;
@@ -70,7 +70,7 @@ public static class SyntaxExtensions
         SemanticModel semanticModel)
     {
         var perOperationAttributeSymbol =
-            semanticModel.Compilation.GetTypeByMetadataName(typeof(PerOperationContextAttribute).FullName!);
+            semanticModel.Compilation.GetTypeByMetadataName(typeof(CompileContextAttribute).FullName!);
 
         return classes
             .Where(c => c.AttributeLists

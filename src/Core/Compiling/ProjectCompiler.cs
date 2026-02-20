@@ -12,7 +12,7 @@ namespace Microsoft.Azure.ApiManagement.PolicyToolkit.Compiling;
 public class ProjectCompiler(DocumentCompiler documentCompiler)
 {
     public async Task<ProjectCompilerResult> Compile(ProjectCompilerOptions options,
-        CancellationToken cancellationToken = default(CancellationToken))
+        CancellationToken cancellationToken = default)
     {
         if (options.ConfigJsonPath is string configPath)
         {
@@ -65,7 +65,7 @@ public class ProjectCompiler(DocumentCompiler documentCompiler)
 
             foreach (var document in documents)
             {
-                if (document.ExtractPerOperationConfigName(semantics) is string perOperationConfigName 
+                if (document.ExtractCompileContextName(semantics) is string perOperationConfigName 
                     && CompileProperties.GetElement(perOperationConfigName) is JsonElement element)
                 {
                     await Console.Out.WriteLineAsync(
@@ -124,10 +124,6 @@ public class ProjectCompiler(DocumentCompiler documentCompiler)
 
             await Console.Out.WriteLineAsync($"File '{syntaxTree.FilePath}' processed");
         }
-
-        await Parallel.ForEachAsync(onlyUserSyntaxTrees, async (syntaxTree, ct) => {
-            
-        });
 
         return result;
     }
